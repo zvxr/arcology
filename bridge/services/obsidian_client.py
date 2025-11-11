@@ -1,4 +1,5 @@
 import json
+import urllib.parse
 from typing import Any, Dict, List, Optional
 
 from bridge.core.config import OBSIDIAN_API_KEY, OBSIDIAN_REST_URL
@@ -100,9 +101,6 @@ class ObsidianClient:
         r.raise_for_status()
         data = r.json()
 
-        # Debug: log the raw response structure
-        logger.info(f"Raw search response: {json.dumps(data, indent=2)}")
-
         # --- patched normalization so path/snippet are populated ---
         hits: List[Dict[str, Any]] = []
 
@@ -118,16 +116,13 @@ class ObsidianClient:
                     break
 
         for item in iterable:
-            # Debug: log each item structure
-            logger.info(f"Processing search item: {json.dumps(item, indent=2)}")
-
             # Try many path locations your plugin might use
             path = (
                 item.get("path")
                 or item.get("file")
                 or item.get("filePath")
                 or item.get("notePath")
-                or item.get("filename")  # Add filename as it's used in patches
+                or item.get("filename")  # Obsidian REST API uses "filename" field
                 or (item.get("fileData", {}) or {}).get("path")
                 or (item.get("document", {}) or {}).get("path")
                 or item.get("id")
@@ -186,20 +181,51 @@ class ObsidianClient:
         return hits
 
     async def read(self, path: str) -> str:
-        """Read a note by relative path"""
-        # Try common endpoints; prefer text body when available
-        for ep in ("/file", "/vault/file", "/read", "/vault/read"):
+        """Read a note by relative path
+        
+        Based on obsidian-local-rest-api: https://github.com/coddingtonbear/obsidian-local-rest-api
+        The endpoint is GET /vault/{path} where path is URL-encoded
+        """
+        # URL encode the path for use in URL
+        encoded_path = urllib.parse.quote(path, safe="/")
+        
+        # Based on obsidian-local-rest-api docs, the endpoint is GET /vault/{path}
+        endpoints_to_try = [
+            f"/vault/{encoded_path}",  # Primary endpoint per obsidian-local-rest-api
+            f"/vault/{path}",  # Try without encoding in case API handles it
+            f"/file/{encoded_path}",
+            f"/file/{path}",
+        ]
+        
+        for ep in endpoints_to_try:
             try:
-                r = await self._get(ep, params={"path": path})
+                r = await self._get(ep)
+                
                 if r.status_code == 200:
                     ct = r.headers.get("Content-Type", "")
                     if "application/json" in ct:
                         data = r.json()
-                        return data.get("content") or json.dumps(data, indent=2)
+                        # Try various content field names
+                        content = (
+                            data.get("content")
+                            or data.get("text")
+                            or data.get("body")
+                            or json.dumps(data, indent=2)
+                        )
+                        return content
+                    # Return text content directly
                     return r.text
-            except Exception:
+                elif r.status_code == 404:
+                    # Continue trying other endpoints
+                    continue
+                else:
+                    # Log non-404 errors for debugging
+                    logger.warning(f"Unexpected status {r.status_code} from GET {ep}: {r.text[:200]}")
+            except Exception as e:
+                logger.debug(f"Error trying GET {ep}: {e}")
                 continue
-        raise RuntimeError("Obsidian REST read not found")
+        
+        raise RuntimeError(f"Obsidian REST read not found for path '{path}' - tried all endpoints")
 
     async def write(self, path: str, content: str) -> Dict[str, Any]:
         """Write (create/overwrite) a note at relative path"""
