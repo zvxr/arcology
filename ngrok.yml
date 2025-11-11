@@ -1,0 +1,11 @@
+version: "2"
+region: us
+
+tunnels:
+  obsidian_mcp:
+    addr: mcp-obsidian:3333
+    proto: http
+
+  arcology_mcp:
+    addr: mcp-bridge:8787
+    proto: http

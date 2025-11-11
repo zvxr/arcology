@@ -15,33 +15,32 @@ services:
     ports:
       - "${MCP_PORT:-3333}:${MCP_PORT:-3333}"
     restart: unless-stopped
+    # Healthcheck: Use the metrics health endpoint on port 8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   ngrok:
     image: ngrok/ngrok:latest
-    container_name: mcp_obsidian_ngrok
-    env_file:
-      - .env
+    container_name: mcp_ngrok
+    env_file: [.env]
     depends_on:
       mcp-obsidian:
-        condition: service_started
+        condition: service_healthy
+      mcp-bridge:
+        condition: service_healthy
+    volumes:
+      - ./ngrok.yml:/ngrok.yml:ro
     entrypoint: []
-    command:
-      - /bin/sh
-      - -c
-      - |
-        set -eu
-        EXTRA_ARGS=""
-        if [ -n "${NGROK_DOMAIN:-}" ]; then
-          EXTRA_ARGS="$${EXTRA_ARGS} --domain=${NGROK_DOMAIN}"
-        fi
-        ngrok http --log=stdout --region=${NGROK_REGION:-us} $${EXTRA_ARGS} mcp-obsidian:${MCP_PORT:-3333}
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    command: ["ngrok", "start", "--all", "--config", "/ngrok.yml", "--log", "stdout"]
     restart: unless-stopped
 
   mcp-bridge:
     build:
-      context: ./mcp-bridge
+      context: ./bridge
       dockerfile: Dockerfile
     container_name: mcp_bridge
     env_file:
@@ -54,17 +53,18 @@ services:
       - OBSIDIAN_API_KEY=${OBSIDIAN_API_KEY}
       # Try MCP first, then fall back to REST (set to "0" to force REST-only)
       - MCP_FIRST=1
+      - ARCOLOGY_MCP_KEY=${ARCOLOGY_MCP_KEY}
     volumes:
-      - ./mcp-bridge:/app
+      - ./bridge:/app/bridge
     ports:
       - "8787:8787"   # optional HTTP API: GET /query?q=boros
     depends_on:
       mcp-obsidian:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8787/healthz"]
+      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
       start_period: 10s

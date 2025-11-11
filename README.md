@@ -1,7 +1,28 @@
 # Archology
 
-![Archology](assets/archology.jpg)
+- Simple project for self-hosting MCP server to expose integrations to AI tools.
+- WIP
 
-Simple project for running MCP servers, configured for Cursor AI and ChatGPT integration.
+![Arcology](assets/arcology.jpg)
 
-- Obsidian
+## Tools
+- Cursor AI
+- ChatGPT
+- Codex
+
+## Integrations
+- Obsidian via [Local REST API for Obsidian](https://github.com/coddingtonbear/obsidian-local-rest-api)
+
+## Workflow
+
+```
+AI Agent >> MCP over HTTPS >> ngrok tunnel >> Archology MCP Bridge >> Obsidian REST API
+```
+
+
+## Structure
+- Bridge is a simple FastAPI app.
+- Runs locally (requires Docker Desktop).
+
+## Notes
+- Custom connectors for native ChatGPT are not fully rolled out to non-enterprise.
