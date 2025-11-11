@@ -41,7 +41,7 @@ services:
 
   mcp-bridge:
     build:
-      context: ./mcp-bridge
+      context: ./bridge
       dockerfile: Dockerfile
     container_name: mcp_bridge
     env_file:
@@ -54,8 +54,9 @@ services:
       - OBSIDIAN_API_KEY=${OBSIDIAN_API_KEY}
       # Try MCP first, then fall back to REST (set to "0" to force REST-only)
       - MCP_FIRST=1
+      - ARCOLOGY_MCP_KEY=${ARCOLOGY_MCP_KEY}
     volumes:
-      - ./mcp-bridge:/app
+      - ./bridge:/app/bridge
     ports:
       - "8787:8787"   # optional HTTP API: GET /query?q=boros
     depends_on:
@@ -63,7 +64,7 @@ services:
         condition: service_started
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8787/healthz"]
+      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
       interval: 30s
       timeout: 5s
       retries: 3
