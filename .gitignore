@@ -1,0 +1,12 @@
+
+# environ
+.env
+
+# mac os
+*.DS_Store
+
+# python
+*.pyc
+
+# vim
+*.sw[nop]

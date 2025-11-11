@@ -1,0 +1,45 @@
+services:
+  mcp-obsidian:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: archology/mcp-server-obsidian:local
+    container_name: mcp_obsidian
+    env_file:
+      - .env
+    environment:
+      - OBSIDIAN_HOST=${OBSIDIAN_HOST}
+      - OBSIDIAN_REST_API_URL=${OBSIDIAN_REST_API_URL}
+      - OBSIDIAN_API_KEY=${OBSIDIAN_API_KEY}
+      - MCP_PORT=${MCP_PORT}
+    ports:
+      - "${MCP_PORT:-3333}:${MCP_PORT:-3333}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${MCP_PORT:-3333}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: mcp_obsidian_ngrok
+    env_file:
+      - .env
+    depends_on:
+      mcp-obsidian:
+        condition: service_started
+    command:
+      - "sh"
+      - "-c"
+      - |
+        set -euo pipefail
+        EXTRA_ARGS=""
+        if [ -n "${NGROK_DOMAIN:-}" ]; then
+          EXTRA_ARGS="$${EXTRA_ARGS} --domain=${NGROK_DOMAIN}"
+        fi
+        ngrok http --log=stdout --region=${NGROK_REGION:-us} $${EXTRA_ARGS} mcp-obsidian:${MCP_PORT:-3333}
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    restart: unless-stopped
