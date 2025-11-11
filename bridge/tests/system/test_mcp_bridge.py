@@ -124,8 +124,10 @@ async def test_read_first_search_result(base_url: str, auth_token: str) -> None:
                 },
             },
         )
-        
-        assert read_response.status_code == 200, f"Read failed with status {read_response.status_code}: {read_response.text}"
+
+        assert (
+            read_response.status_code == 200
+        ), f"Read failed with status {read_response.status_code}: {read_response.text}"
         read_data = read_response.json()
         assert read_data["jsonrpc"] == "2.0"
         assert read_data["id"] == "1"

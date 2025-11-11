@@ -182,13 +182,13 @@ class ObsidianClient:
 
     async def read(self, path: str) -> str:
         """Read a note by relative path
-        
+
         Based on obsidian-local-rest-api: https://github.com/coddingtonbear/obsidian-local-rest-api
         The endpoint is GET /vault/{path} where path is URL-encoded
         """
         # URL encode the path for use in URL
         encoded_path = urllib.parse.quote(path, safe="/")
-        
+
         # Based on obsidian-local-rest-api docs, the endpoint is GET /vault/{path}
         endpoints_to_try = [
             f"/vault/{encoded_path}",  # Primary endpoint per obsidian-local-rest-api
@@ -196,11 +196,11 @@ class ObsidianClient:
             f"/file/{encoded_path}",
             f"/file/{path}",
         ]
-        
+
         for ep in endpoints_to_try:
             try:
                 r = await self._get(ep)
-                
+
                 if r.status_code == 200:
                     ct = r.headers.get("Content-Type", "")
                     if "application/json" in ct:
@@ -220,12 +220,16 @@ class ObsidianClient:
                     continue
                 else:
                     # Log non-404 errors for debugging
-                    logger.warning(f"Unexpected status {r.status_code} from GET {ep}: {r.text[:200]}")
+                    logger.warning(
+                        f"Unexpected status {r.status_code} from GET {ep}: {r.text[:200]}"
+                    )
             except Exception as e:
                 logger.debug(f"Error trying GET {ep}: {e}")
                 continue
-        
-        raise RuntimeError(f"Obsidian REST read not found for path '{path}' - tried all endpoints")
+
+        raise RuntimeError(
+            f"Obsidian REST read not found for path '{path}' - tried all endpoints"
+        )
 
     async def write(self, path: str, content: str) -> Dict[str, Any]:
         """Write (create/overwrite) a note at relative path"""
@@ -245,8 +249,10 @@ class ObsidianClient:
                     r = await self._put(ep, json_body=body)
                 if r.status_code in (200, 201, 204):
                     try:
-                        data = r.json()
+                        data: Dict[str, Any] = r.json()
                     except Exception:
+                        data = {"ok": True}
+                    if not isinstance(data, dict):
                         data = {"ok": True}
                     data.setdefault("ok", True)
                     data.setdefault("path", path)

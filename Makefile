@@ -33,7 +33,7 @@ format:
 
 lint:
 	@docker compose exec mcp-bridge ruff check /app/bridge
-	@docker compose exec mcp-bridge pyright /app/bridge
+	@docker compose exec -e PYTHONWARNINGS=ignore::DeprecationWarning:nodeenv mcp-bridge pyright /app/bridge
 
 test:
 	@docker compose exec -e ARCOLOGY_MCP_KEY="$${ARCOLOGY_MCP_KEY}" mcp-bridge pytest /app/bridge/tests/system -vv -s
