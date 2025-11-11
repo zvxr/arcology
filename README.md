@@ -3,7 +3,7 @@
 - Simple project for self-hosting MCP server to expose integrations to AI tools.
 - WIP
 
-![Arcology](assets/arcology.jpg)
+![Arcology](assets/arcology.png)
 
 ## Tools
 - Cursor AI
