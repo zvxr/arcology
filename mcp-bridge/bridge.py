@@ -116,12 +116,64 @@ async def obsidian_search(query: str, context_length: int = 120) -> List[Dict[st
         r = await client.post(f"{OBSIDIAN_REST_URL}/search/simple/", params=params, headers=headers)
         r.raise_for_status()
         data = r.json()
-        hits = []
+        data = r.json()
+
+        # --- patched normalization so path/snippet are populated ---
+        hits: List[Dict[str, Any]] = []
+
+        # Primary iterable from your current API
         iterable = data if isinstance(data, list) else data.get("results", [])
+
+        # Also try a few common wrappers many Obsidian REST plugins use
+        if not iterable and isinstance(data, dict):
+            for k in ("items", "files", "data", "result"):
+                v = data.get(k)
+                if isinstance(v, list):
+                    iterable = v
+                    break
+
         for item in iterable:
+            # Try many path locations your plugin might use
+            path = (
+                item.get("path")
+                or item.get("file")
+                or item.get("filePath")
+                or item.get("notePath")
+                or (item.get("fileData", {}) or {}).get("path")
+                or (item.get("document", {}) or {}).get("path")
+                or item.get("id")
+                or ""
+            )
+
+            # Best-effort snippet candidates
+            snippet = (
+                item.get("snippet")
+                or item.get("preview")
+                or item.get("context")
+                or item.get("text")
+                or ""
+            )
+
+            # Many plugins return matches: [{"text"/"preview"/"context", ...}, ...]
+            if not snippet and isinstance(item.get("matches"), list) and item["matches"]:
+                m0 = item["matches"][0]
+                snippet = m0.get("text") or m0.get("preview") or m0.get("context") or ""
+
+            # final fallbacks so you see *something* useful
+            if not path and isinstance(item.get("file"), dict):
+                path = item["file"].get("path") or ""
+
+            if not snippet:
+                try:
+                    snippet = json.dumps(
+                        {k: item.get(k) for k in ("path","file","filePath","notePath","snippet","preview","text") if k in item}
+                    )[:240]
+                except Exception:
+                    snippet = ""
+
             hits.append({
-                "path": item.get("path") or item.get("file") or "",
-                "snippet": item.get("snippet") or item.get("preview") or "",
+                "path": path,
+                "snippet": (snippet or "").strip(),
                 "score": item.get("score"),
             })
         return hits
