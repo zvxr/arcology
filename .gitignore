@@ -1,4 +1,7 @@
 
+# beads
+.beads*
+
 # environ
 .env
 

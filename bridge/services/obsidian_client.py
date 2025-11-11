@@ -93,7 +93,7 @@ class ObsidianClient:
             raise RuntimeError("Obsidian REST URL not configured.")
         headers = self._get_headers()
         client = get_http_client()
-        params = {"query": query, "contextLength": context_length}
+        params: Dict[str, Any] = {"query": query, "contextLength": str(context_length)}
         r = await client.post(
             f"{self.rest_url}/search/simple/", params=params, headers=headers
         )
