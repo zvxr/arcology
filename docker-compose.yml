@@ -15,12 +15,6 @@ services:
     ports:
       - "${MCP_PORT:-3333}:${MCP_PORT:-3333}"
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${MCP_PORT:-3333}/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
 
   ngrok:
     image: ngrok/ngrok:latest
@@ -30,11 +24,12 @@ services:
     depends_on:
       mcp-obsidian:
         condition: service_started
+    entrypoint: []
     command:
-      - "sh"
-      - "-c"
+      - /bin/sh
+      - -c
       - |
-        set -euo pipefail
+        set -eu
         EXTRA_ARGS=""
         if [ -n "${NGROK_DOMAIN:-}" ]; then
           EXTRA_ARGS="$${EXTRA_ARGS} --domain=${NGROK_DOMAIN}"
@@ -43,3 +38,33 @@ services:
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
     restart: unless-stopped
+
+  mcp-bridge:
+    build:
+      context: ./mcp-bridge
+      dockerfile: Dockerfile
+    container_name: mcp_bridge
+    env_file:
+      - .env
+    environment:
+      # Internal MCP endpoint (service-to-service, no ngrok)
+      - MCP_ENDPOINT_URL=http://mcp-obsidian:${MCP_PORT:-3333}/mcp
+      # Reuse your existing Obsidian REST URL var for the bridge
+      - OBSIDIAN_REST_URL=${OBSIDIAN_REST_API_URL}
+      - OBSIDIAN_API_KEY=${OBSIDIAN_API_KEY}
+      # Try MCP first, then fall back to REST (set to "0" to force REST-only)
+      - MCP_FIRST=1
+    volumes:
+      - ./mcp-bridge:/app
+    ports:
+      - "8787:8787"   # optional HTTP API: GET /query?q=boros
+    depends_on:
+      mcp-obsidian:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8787/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
