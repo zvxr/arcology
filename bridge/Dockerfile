@@ -22,9 +22,10 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies needed for pyright (libatomic for Node.js)
+# Install system dependencies needed for pyright (libatomic for Node.js) and healthcheck (curl)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libatomic1 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages from builder
@@ -42,5 +43,5 @@ COPY tests/ ./bridge/tests/
 
 EXPOSE 8787
 
-CMD ["uvicorn", "bridge.server:app", "--host", "0.0.0.0", "--port", "8787"]
+CMD ["uvicorn", "bridge.server:app", "--host", "0.0.0.0", "--port", "8787", "--reload", "--reload-dir", "/app/bridge"]
 
