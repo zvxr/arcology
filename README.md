@@ -11,7 +11,7 @@
 - Codex
 
 ## Integrations
-- Obsidian
+- Obsidian via [Local REST API for Obsidian](https://github.com/coddingtonbear/obsidian-local-rest-api)
 
 ## Workflow
 
