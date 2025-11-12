@@ -1,4 +1,4 @@
-# Archology
+# Arcology
 
 - Simple project for self-hosting MCP server to expose integrations to AI tools.
 - WIP
