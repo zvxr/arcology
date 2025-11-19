@@ -1,50 +1,22 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Everything revolves around the `docker-compose.yml` which runs local MCP server, Obsidian HTTP server, and reverse proxy via ngrok.
-- Basic usage for agents and humans is driven through `Makefile`. Always prefer `make` commands to one-off commands.
-- `bridge` is a FastAPI MCP server which provides MCP endpoints and Obsidian proxy.
+`docker-compose.yml` orchestrates `mcp-bridge`, the Obsidian proxy, and ngrok; treat it as canonical for ports, env, and container names. Application code lives in `bridge/` (FastAPI server, models, routes, services) and relies on resources in `assets/` plus overlay patches in `patches/`. Tests live in `bridge/tests`; wire any new routers through `bridge/server.py`.
 
 ## Build, Test, and Development Commands
-The core workflow is Docker-based
-- `make run` will rebuild and ensure the stack is running. It always runs in the background so as to be available to agents.
-- `make ngrok-url` — prints the active HTTPS endpoint by querying the ngrok admin API (needs `python3` on the host).
-
-# Configuration & Naming Conventions
-Compose files use two-space indentation and kebab-case service names (`mcp-obsidian`, `mcp-notion`). Mirror that naming in container names and optional overlays to avoid drift. Store required variables in `.env` with uppercase snake keys (`OBSIDIAN_*`, `NGROK_AUTHTOKEN`, `NGROK_REGION`, optional `NGROK_DOMAIN`); never commit real secrets to docs or sample commands. If a value must be shared, provide a `.env.example` entry with `CHANGE_ME` tokens and explain sourcing steps. When overriding upstream behavior, keep patches small, documented at the top of each file, and note which upstream version they target.
-
-## Build, Test, and Development Commands
-- **CRITICAL**: Review the Makefile - it contains detailed directives for what Agents should run and when.
-- **LINTING REQUIREMENT**: All code changes MUST pass linting before being presented for review. Run `make lint`.
-- **FORMATTING REQUIREMENT**: Run `make format` after making backend changes to ensure consistent code formatting.
-- Run `make test` when making changes to the bridge API server or any docker-compose changes to prevent regressions.
-- Add testing as appropriate.
+Always use the Makefile: `make run` rebuilds and restarts the stack in the background, while `make ngrok-url` prints the public HTTPS tunnel exposed by the ngrok container. Linting and formatting stay containerized: `make format` (Ruff format + autofix), `make lint` (Ruff + Pyright), `make test` (pytest system suite), and `make checks` for the full trio before requesting review.
 
 ## Coding Style & Naming Conventions
-- Target Python 3.12 with four-space indentation and snake_case module names.
-- Always place imports at the top of the file. Do not place imports in functions.
-- Avoid redundant comments. Most code is self-documenting.
-- Avoid `getattr` or dictionary `.get` for attributes that always exist or should exist.
-- Always look for opportunities to consolidate code. Use DRY principles.
+Target Python 3.12 with four-space indentation, explicit module-level imports, and snake_case identifiers; reserve PascalCase for Pydantic models and kebab-case for Compose services. Compose files stay two-space indented, and service names should match their containers. Environment keys use uppercase snake_case (`OBSIDIAN_VAULT`, `NGROK_REGION`, `NGROK_AUTHTOKEN`) and must be documented via `.env.example` placeholders such as `CHANGE_ME`.
+
+## Testing Guidelines
+Pytest backs every change. The authoritative suite lives in `bridge/tests/system` and executes through `make test`, which runs inside the `mcp-bridge` container to match CI. Name tests after behavior (`test_proxy_handles_expired_tokens`) and expand coverage whenever routes, services, or compose wiring change.
 
 ## Commit & Pull Request Guidelines
-- Include summaries of changes.
-- Request review only after containerized checks pass.
-- **CRITICAL: NEVER commit without user review**: Always present changes for review first
-- Confirm or display changes being made in code, but wait for instruction to create git commits.
-- Do not `git commit` without first allowing user to review code changes.
+Structure commit summaries around the user-facing outcome plus primary modules touched. Never open a PR or hand work to review until `make checks` passes, and avoid git commits until reviewers approve the diff. Reference the relevant bead ID in PR descriptions and call out any manual rollout steps (e.g., rerunning `make run`).
 
-## Other Important Guidelines
-- **CRITICAL: NEVER edit `.env` or commit it. It should not even be read directly by agents.
+## Issue Tracking with Beads
+All work starts with `bd ready --json`, gets claimed via `bd update <id> --status in_progress --json`, and finishes with `bd close <id> --reason "Done" --json`. Log discovered follow-ups using `bd create "Found issue" -p <priority> --deps discovered-from:<parent-id>` instead of ad-hoc TODOs so the board stays authoritative.
 
-## Issue Tracking with bd (beads)
-
-**CRITICAL**: This project uses **bd (beads)** for ALL issue tracking. Never use markdown TODOs or other tracking methods.
-
-### Essential Rules for Agents
-
-- **Always use beads**: Track everything in beads, never create random TODO lists
-- **Check ready work first**: `bd ready --json` before starting any work
-- **Claim your task**: `bd update <id> --status in_progress --json`
-- **Link discovered work**: `bd create "Found issue" -p 1 --deps discovered-from:<parent-id> --json`
-- **Complete work**: `bd close <id> --reason "Done" --json`
+## Security & Configuration Tips
+Never edit or commit `.env`; source it locally so Compose can inject `OBSIDIAN_*` and ngrok credentials. When overriding upstream Obsidian or MCP assets, store the diff under `patches/` with a short header explaining the upstream version and intent, and mention the patch whenever you touch related code.
