@@ -47,7 +47,7 @@ services:
       - .env
     environment:
       # Internal MCP endpoint (service-to-service, no ngrok)
-      - MCP_ENDPOINT_URL=http://mcp-obsidian:${MCP_PORT:-3333}/mcp
+      - MCP_ENDPOINT_URL=http://mcp-obsidian:8000/mcp
       # Reuse your existing Obsidian REST URL var for the bridge
       - OBSIDIAN_REST_URL=${OBSIDIAN_REST_API_URL}
       - OBSIDIAN_API_KEY=${OBSIDIAN_API_KEY}
